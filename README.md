@@ -11,9 +11,9 @@
   <a href="https://npmcharts.com/compare/vite-plugin-rempa?minimal=true"><img src="https://img.shields.io/npm/dm/vite-plugin-rempa.svg?style=flat-square&colorA=564341&colorB=EDED91" alt="monthly downloads" /></a>
 </p>
 
-A Vite plugin to generate React multi-page applications from page configurations.
+A Vite plugin to generate React and Vue 3 multi-page applications from page configurations.
 
-Automatically discover nested pages, generate HTML and React entries, and apply shared layouts and templates. Supports React Fast Refresh and automatic React version detection.
+Automatically discover nested pages, generate HTML and framework entries, and apply shared layouts and templates. Supports React Fast Refresh, Vue SFC hot updates, and automatic React version detection.
 
 ## Usage
 
@@ -41,9 +41,46 @@ export default defineConfig({
 })
 ```
 
+## Vue 3
+
+Install Vue and its Vite compiler plugin:
+
+```sh
+pnpm add vue
+pnpm add -D vite vite-plugin-rempa @vitejs/plugin-vue
+```
+
+```ts
+import vue from '@vitejs/plugin-vue'
+import { defineConfig } from 'vite'
+import rempa from 'vite-plugin-rempa'
+
+export default defineConfig({
+  plugins: [
+    vue(),
+    rempa()
+  ],
+})
+```
+
+Place an `index.vue` next to each `config.json`. Vue layouts are `.vue` components that render the page through `<slot />`:
+
+```vue
+<template>
+  <main>
+    <header>Shared layout</header>
+    <slot />
+  </main>
+</template>
+```
+
+Set `layout: '@/layout/Layout.vue'` in a page config or in the plugin options. Without a layout, the page mounts directly. Vue and React share the same template parameters, page discovery, and `mountElementId` option (default `root`). Vue apps do not need React installed. The framework is detected from the app's nearest `package.json` (`dependencies` and `devDependencies`). A Vue-only declaration selects Vue even if React is hoisted by another workspace app. When both are declared, React takes priority for compatibility. With neither declared, the plugin checks installed React, then Vue, and finally defaults to React. Set `framework: 'vue'` or `framework: 'react'` to override detection. Select one framework per plugin configuration; Vue 2 and Vue JSX entries are not supported.
+
+Run the complete example with `pnpm play:vue`, or build it with `pnpm build:example:vue`.
+
 ## Page Discovery
 
-By default, the plugin scans `src/pages` for `config.json` files. Each page needs an `index.tsx` exporting a React component; an empty configuration `{}` is valid.
+By default, the plugin scans `src/pages` for `config.json` files. Each page needs an `index.tsx` exporting a React component, or an `index.vue` when Vue is detected or selected; an empty configuration `{}` is valid.
 
 ```text
 src/pages/
@@ -65,9 +102,10 @@ Pass an options object to `rempa` to customize discovery and shared defaults:
 
 | Name | Default | Description |
 | --- | --- | --- |
+| `framework` | Auto-detected | Override the detected framework: `react` for `index.tsx`, `vue` for Vue 3 `index.vue`. React wins ties. |
 | `pagesPath` | `src/pages` | Page directory, relative to Vite's `root`. |
 | `template` | Automatically selected | Default HTML template file. |
-| `layout` | React Fragment | Layout component receiving the page through `children`. Supports paths, aliases, and package imports. |
+| `layout` | No wrapper | Layout receiving React `children` or the Vue default slot. Supports paths, aliases, and package imports. |
 | `aliasAtToSrc` | `true` | Add a fallback `@` alias for `<root>/src`, preserving existing aliases. |
 | `locals` | `true` | Also expose template parameters through the object named by `localsName`. |
 | `localsName` | `locals` | Name of the template parameters object. |
@@ -132,10 +170,10 @@ For plugin development, use Node.js 24.12.0 (see `.nvmrc`) and run `pnpm install
 | Command | Description |
 | --- | --- |
 | `pnpm dev` | Watch and rebuild the plugin. |
-| `pnpm play` | Start the React example at `/rempa/`. |
+| `pnpm play` / `pnpm play:vue` | Start the React or Vue example at `/rempa/`. |
 | `pnpm build` | Build ESM, CommonJS, and TypeScript declarations. |
-| `pnpm build:example` | Build the plugin and React example. |
-| `pnpm preview` | Preview the built example at `/rempa/`. |
+| `pnpm build:example` / `pnpm build:example:vue` | Build the plugin and React or Vue example. |
+| `pnpm preview` / `pnpm preview:vue` | Preview the built React or Vue example at `/rempa/`. |
 | `pnpm lint` / `pnpm typecheck` | Check formatting and types. |
 | `pnpm test` | Run unit and integration tests. |
 | `pnpm test:e2e` | Build the plugin and run browser tests. |

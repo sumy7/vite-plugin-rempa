@@ -35,6 +35,15 @@ function resolveLayout(root: string, layout: string): string {
 }
 
 export async function collectPages(root: string, pagesPath: string, options: PluginRempaOptions): Promise<Page[]> {
+  const framework = options.framework ?? 'react'
+  if (framework !== 'react' && framework !== 'vue')
+    throw new TypeError('[vite-plugin-rempa] framework must be "react" or "vue"')
+  const entryFilename = framework === 'vue'
+    ? 'index.vue'
+    : 'index.tsx'
+  const runtimeExtension = framework === 'vue'
+    ? 'js'
+    : 'tsx'
   const files = (await glob('**/config.json', { cwd: pagesPath, nodir: true })).sort()
   const template = options.template ?? defaultTemplate(root)
   const pages = files.map((file): Page => {
@@ -52,7 +61,7 @@ export async function collectPages(root: string, pagesPath: string, options: Plu
     const name = directory === '.'
       ? 'index'
       : directory
-    const entryPath = path.resolve(pagesPath, directory, 'index.tsx')
+    const entryPath = path.resolve(pagesPath, directory, entryFilename)
     if (!existsSync(entryPath))
       throw new Error(`[vite-plugin-rempa] Missing page entry ${entryPath} (from ${configPath})`)
 
@@ -80,12 +89,12 @@ export async function collectPages(root: string, pagesPath: string, options: Plu
       pageConfig: { ...parameters, title: (title as string) || name, mountElementId },
       configPath,
       htmlPath: normalizePath(path.resolve(root, `${name}.html`)),
-      runtimePath: normalizePath(path.resolve(root, '.rempa', 'runtime', `${createHash('sha256').update(name).digest('hex')}.tsx`)),
-      runtimeUrl: `${RUNTIME_PREFIX}${encodePageUrl(name)}.tsx`,
+      runtimePath: normalizePath(path.resolve(root, '.rempa', 'runtime', `${createHash('sha256').update(name).digest('hex')}.${runtimeExtension}`)),
+      runtimeUrl: `${RUNTIME_PREFIX}${encodePageUrl(name)}.${runtimeExtension}`,
     }
   })
   if (!pages.length)
-    throw new Error(`[vite-plugin-rempa] No pages found in ${pagesPath}; add a config.json and index.tsx`)
+    throw new Error(`[vite-plugin-rempa] No pages found in ${pagesPath}; add a config.json and ${entryFilename}`)
   const names = new Set<string>()
   for (const page of pages) {
     if (names.has(page.name))

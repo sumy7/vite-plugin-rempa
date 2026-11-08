@@ -1,0 +1,7 @@
+{
+  "title": "Hello World",
+  "layout": "@/layout/Layout.vue",
+  "template": "src/template/index.html",
+  "mountElementId": "app",
+  "description": "A Vue page with a shared layout"
+}

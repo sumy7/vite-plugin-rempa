@@ -11,6 +11,29 @@ function collect(root: string, options = {}) {
 }
 
 describe('page discovery', () => {
+  it('discovers Vue root and nested entries with JavaScript runtimes', async () => {
+    const root = await temporaryDirectory()
+    for (const name of ['', 'admin/users']) {
+      await write(root, `src/pages/${name}/config.json`, '{}')
+      await write(root, `src/pages/${name}/index.vue`, '<template><h1>Vue page</h1></template>')
+    }
+    const pages = await collect(root, { framework: 'vue' })
+    expect(pages.map(page => page.name)).toEqual(['admin/users', 'index'])
+    for (const page of pages) {
+      expect(page.entryPath).toMatch(/index\.vue$/)
+      expect(page.runtimePath).toMatch(/\.js$/)
+      expect(page.runtimeUrl).toBe(`/@rempa/${page.name}.js`)
+    }
+  })
+
+  it('reports Vue entries in discovery errors and rejects unsupported frameworks', async () => {
+    const root = await temporaryDirectory()
+    await expect(collect(root, { framework: 'vue' })).rejects.toThrow('add a config.json and index.vue')
+    await writePage(root, 'react-only')
+    await expect(collect(root, { framework: 'vue' })).rejects.toThrow(/Missing page entry .*index\.vue/)
+    await expect(collect(root, { framework: 'angular' })).rejects.toThrow('framework must be "react" or "vue"')
+  })
+
   it('collects root, nested and sibling pages while ignoring unconfigured components', async () => {
     const root = await temporaryDirectory()
     await writePage(root, '')

@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { getReactVersion, isReact18 } from '../src/utils'
+import { getReactVersion, isReact18, resolveFramework } from '../src/utils'
 import { useTemporaryDirectories, write } from './helpers'
 
 const temporaryDirectory = useTemporaryDirectories()
@@ -47,5 +47,78 @@ describe('installed React version', () => {
     expect(getReactVersion(root)).toBe(false)
     await write(root, 'node_modules/react/package.json', '{ malformed')
     expect(getReactVersion(root)).toBe(false)
+  })
+})
+
+describe('framework detection', () => {
+  it.each([
+    {
+      dependencies: { react: '*' },
+      expected: 'react',
+    },
+    {
+      dependencies: { vue: '*' },
+      expected: 'vue',
+    },
+    {
+      devDependencies: { vue: '*' },
+      expected: 'vue',
+    },
+    {
+      dependencies: { react: '*', vue: '*' },
+      expected: 'react',
+    },
+  ])('prefers application dependencies: $expected', async ({ expected, ...pkg }) => {
+    const root = await temporaryDirectory()
+    await write(root, 'package.json', JSON.stringify(pkg))
+    // Both packages are visible here, as in a hoisted monorepo installation.
+    await installReact(root, '19.3.1')
+    await write(root, 'node_modules/vue/package.json', '{"version":"3.5.45"}')
+    expect(resolveFramework(root)).toBe(expected)
+  })
+
+  it('uses the nearest application manifest for nested roots and hoisted dependencies', async () => {
+    const root = await temporaryDirectory()
+    await write(root, 'package.json', '{"dependencies":{"react":"*","vue":"*"}}')
+    await installReact(root, '19.3.1')
+    await write(root, 'node_modules/vue/package.json', '{"version":"3.5.45"}')
+    const application = path.join(root, 'examples/vue')
+    await write(application, 'package.json', '{"dependencies":{"vue":"*"}}')
+    expect(resolveFramework(application)).toBe('vue')
+    expect(resolveFramework(path.join(application, 'src'))).toBe('vue')
+  })
+
+  it.each(['react', 'vue'] as const)('lets an explicit %s override installed dependencies', async (framework) => {
+    const root = await temporaryDirectory()
+    await write(root, 'package.json', JSON.stringify({
+      dependencies: { [framework === 'react'
+        ? 'vue'
+        : 'react']: '*' },
+    }))
+    expect(resolveFramework(root, framework)).toBe(framework)
+  })
+
+  it.each([
+    { react: false, vue: true, expected: 'vue' },
+    { react: true, vue: true, expected: 'react' },
+    { react: true, vue: false, expected: 'react' },
+    { react: false, vue: false, expected: 'react' },
+  ])('uses installed packages or the React fallback: $react / $vue', async ({ react, vue, expected }) => {
+    const root = await temporaryDirectory()
+    await write(root, 'package.json', '{}')
+    for (const [name, installed] of [
+      ['react', react],
+      ['vue', vue],
+    ] as const) {
+      await write(root, `node_modules/${name}/package.json`, JSON.stringify(installed
+        ? {
+            name,
+            version: name === 'react'
+              ? '18.3.1'
+              : '3.5.45',
+          }
+        : { name, exports: {} }))
+    }
+    expect(resolveFramework(root)).toBe(expected)
   })
 })

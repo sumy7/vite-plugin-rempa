@@ -1,7 +1,8 @@
+import type { Api as VuePluginApi } from '@vitejs/plugin-vue'
 import type { Plugin, ResolvedConfig } from 'vite'
 import type { Page } from './pages.ts'
 import type { PluginRempaOptions } from './types.ts'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { normalizePath } from 'vite'
@@ -10,14 +11,15 @@ import { collectPages, encodePageUrl } from './pages.ts'
 import { createPageResources } from './resources.ts'
 import { runtimeSource } from './runtime.ts'
 import { renderPage } from './template.ts'
-import { getReactVersion, isReact18 } from './utils.ts'
+import { getReactVersion, isReact18, resolveFramework } from './utils.ts'
 
-/** Discover React pages and expose them as Vite HTML entries. */
+/** Discover pages and expose them as Vite HTML entries. */
 export function pluginRempa(options: PluginRempaOptions = {}): Plugin {
   let pages: Page[] = []
   let config: ResolvedConfig
   let pagesPath: string
   let modernReact = false
+  let framework: 'react' | 'vue'
   let pageModules: ReturnType<typeof createPageModules>
   let resources: ReturnType<typeof createPageResources>
   const moduleFiles = new Set<string>()
@@ -25,7 +27,7 @@ export function pluginRempa(options: PluginRempaOptions = {}): Plugin {
   const runtimePages = new Map<string, Page>()
 
   async function refreshPages(): Promise<void> {
-    const nextPages = await collectPages(config.root, pagesPath, options)
+    const nextPages = await collectPages(config.root, pagesPath, { ...options, framework })
     pages = nextPages
     htmlPages.clear()
     runtimePages.clear()
@@ -61,20 +63,62 @@ export function pluginRempa(options: PluginRempaOptions = {}): Plugin {
     },
     async configResolved(resolvedConfig) {
       config = resolvedConfig
+      framework = resolveFramework(config.root, options.framework)
       pageModules = createPageModules(config.root)
       resources = createPageResources(config)
       moduleFiles.clear()
       pagesPath = path.resolve(config.root, options.pagesPath ?? 'src/pages')
       await refreshPages()
-      if (!getReactVersion(config.root))
+      if (framework === 'vue') {
+        const vue = config.plugins.find(plugin => plugin.name === 'vite:vue') as Plugin<VuePluginApi> | undefined
+        if (vue?.api) {
+          const vueOptions = vue.api.options
+          const compiler = vueOptions.compiler
+          vue.api.options = {
+            ...vueOptions,
+            compiler: {
+              ...compiler,
+              compileScript(descriptor, scriptOptions) {
+                // Type imports are resolved by Vue's compiler rather than Vite's resolver.
+                // Keep URL-safe module IDs while resolving types from the original SFC.
+                const filename = pageModules.get(descriptor.filename)
+                return compiler.compileScript(filename
+                  ? { ...descriptor, filename }
+                  : descriptor, scriptOptions)
+              },
+              compileTemplate(templateOptions) {
+                const assets = templateOptions.transformAssetUrls
+                const userAssets = vueOptions.template?.transformAssetUrls
+                if (pageModules.get(templateOptions.filename) && assets !== false
+                  && !(typeof userAssets === 'object' && 'base' in userAssets)) {
+                  // Resolve relative assets as imports, instead of URLs under the virtual directory.
+                  templateOptions = {
+                    ...templateOptions,
+                    transformAssetUrls: {
+                      ...(typeof assets === 'object'
+                        ? assets
+                        : {}),
+                      base: null,
+                    },
+                  }
+                }
+                return compiler.compileTemplate(templateOptions)
+              },
+            },
+          }
+        }
+      }
+      if (framework !== 'vue' && !getReactVersion(config.root))
         throw new Error(`[vite-plugin-rempa] Cannot resolve React from ${config.root}; install react and react-dom in the app`)
-      modernReact = isReact18(config.root)
+      modernReact = framework !== 'vue' && isReact18(config.root)
       const dependencies = config.environments.client.optimizeDeps
       dependencies.entries ??= pages.map(page => page.entryPath)
-      const runtimeDependencies = [
-        'react',
-        modernReact ? 'react-dom/client' : 'react-dom',
-      ]
+      const runtimeDependencies = (framework === 'vue'
+        ? ['vue']
+        : [
+            'react',
+            modernReact ? 'react-dom/client' : 'react-dom',
+          ])
         .filter(dependency => !dependencies.include?.includes(dependency)
           && !dependencies.exclude?.some(excluded => dependency === excluded || dependency.startsWith(`${excluded}/`)))
       dependencies.include = [
@@ -135,13 +179,24 @@ export function pluginRempa(options: PluginRempaOptions = {}): Plugin {
       if (source) {
         const resolved = await this.resolve(id, source, { skipSelf: true })
         if (resolved && !resolved.external) {
-          const filename = resolved.id.split('?')[0]
+          let resolvedId = resolved.id
+          // Vite may insert a dependency version before a literal # in a filename.
+          const versionedHash = /^([^?]+)\?(v=[^#]+)#([^?]+)(\?.*)?$/.exec(resolvedId)
+          if (versionedHash) {
+            const file = `${versionedHash[1]}#${versionedHash[3]}`
+            if (existsSync(file)) {
+              resolvedId = `${file}${versionedHash[4]
+                ? `${versionedHash[4]}&`
+                : '?'}${versionedHash[2]}`
+            }
+          }
+          const filename = resolvedId.split('?')[0]
           if (/[#%]/.test(filename)) {
-            const isSource = /\.(?:[cm]?[jt]sx?|json)$/i.test(filename) && !/[?&](?:raw|url)(?:[=&]|$)/.test(resolved.id)
+            const isSource = /\.(?:[cm]?[jt]sx?|json|vue)$/i.test(filename) && !/[?&](?:raw|url)(?:[=&]|$)/.test(resolvedId)
             const safeId = isSource
               ? pageModules.register(filename)
               : await resources.materialize(filename)
-            return { ...resolved, id: safeId + resolved.id.slice(filename.length) }
+            return { ...resolved, id: safeId + resolvedId.slice(filename.length) }
           }
         }
         return resolved
@@ -166,13 +221,31 @@ export function pluginRempa(options: PluginRempaOptions = {}): Plugin {
         const entry = /[#%?]/.test(runtime.entryPath)
           ? pageModules.register(runtime.entryPath)
           : runtime.entryPath
-        return runtimeSource(runtime, modernReact, entry)
+        return runtimeSource(runtime, modernReact, entry, framework)
       }
       const source = pageModules.get(id)
       if (source) {
         this.addWatchFile(source)
         moduleFiles.add(source)
+        // Vue's compiler owns SFC script/style subrequests and its descriptor cache.
+        if (id.includes('?vue') && !new URLSearchParams(id.slice(id.indexOf('?') + 1)).has('src'))
+          return null
         return readFileSync(source, 'utf8')
+      }
+    },
+    async transform(code, id) {
+      const source = pageModules.get(id)
+      const query = new URLSearchParams(id.slice(id.indexOf('?') + 1))
+      if (source && query.has('vue') && query.get('type') === 'style' && query.has('lang.css')) {
+        const rewritten = await resources.rewriteCss(code, source, async (asset, importer) => {
+          const resolved = await this.resolve(asset, importer)
+          return resolved && !resolved.external
+            ? resolved.id
+            : undefined
+        })
+        for (const dependency of rewritten.dependencies)
+          this.addWatchFile(dependency)
+        return { code: rewritten.code, map: null }
       }
     },
     configureServer(server) {
@@ -192,8 +265,7 @@ export function pluginRempa(options: PluginRempaOptions = {}): Plugin {
               return
             const graph = server.environments.client.moduleGraph
             if (sourceChanged) {
-              const module = graph.getModuleById(pageModules.register(file))
-              if (module)
+              for (const module of graph.getModulesByFile(pageModules.register(file)) ?? [])
                 graph.invalidateModule(module, undefined, Date.now(), true)
             }
             for (const id of resourcesChanged) {

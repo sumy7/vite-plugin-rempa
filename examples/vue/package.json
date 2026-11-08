@@ -1,0 +1,20 @@
+{
+  "name": "@vite-plugin-rempa/example-vue",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.45"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.10",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.6",
+    "vite-plugin-rempa": "workspace:*",
+    "vue-tsc": "^3.3.14"
+  }
+}

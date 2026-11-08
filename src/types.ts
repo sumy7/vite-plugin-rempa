@@ -9,6 +9,8 @@ export interface PageEntry {
 }
 
 export interface PluginRempaOptions {
+  /** Page framework. Auto-detected from app dependencies when omitted; React wins ties. */
+  framework?: 'react' | 'vue'
   /** Default HTML template, relative to Vite's root. Supports EJS/lodash-style tags. */
   template?: string
   /** Default layout module. Relative file paths resolve from Vite's root; aliases are supported. */

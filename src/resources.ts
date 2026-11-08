@@ -15,11 +15,14 @@ interface Declaration {
   source?: { input: { file?: string } }
 }
 
+type ResolveCssAsset = (id: string, importer: string) => Promise<string | undefined>
+
 // Match URL values after PostCSS has separated declarations from comments and rules.
 const cssUrlRE = /(?<=^|[^\w\-\u0080-\uFFFF])url\((\s*'[^']*'\s*|\s*"[^"]*"\s*|[^'")]+)\)/g
 
 export function createPageResources(config: ResolvedConfig): {
   materialize: (filename: string) => Promise<string>
+  rewriteCss: (code: string, filename: string, resolve?: ResolveCssAsset) => Promise<{ code: string, dependencies: string[] }>
   get: (id: string) => string | undefined
   dependencies: (id: string) => string[]
   refresh: (filename: string) => Promise<string[]>
@@ -43,6 +46,62 @@ export function createPageResources(config: ResolvedConfig): {
     }
   }
 
+  async function rewriteCss(code: string, filename: string, resolve?: ResolveCssAsset): Promise<{ code: string, dependencies: string[] }> {
+    const dependencies = new Set<string>()
+    const parserFilename = `${filename}.rempa.css`
+    const plugin = {
+      postcssPlugin: 'rempa-resource-urls',
+      async Declaration(declaration: Declaration): Promise<void> {
+        const importer = declaration.source?.input.file ?? parserFilename
+        const source = importer === parserFilename
+          ? filename
+          : importer
+        const matches = [
+          ...declaration.value.matchAll(cssUrlRE),
+        ]
+        for (const match of matches.reverse()) {
+          const raw = match[1].trim().replace(/^(['"])(.*)\1$/s, '$2')
+          if (!raw || /^(?:[a-z][\w+.-]*:|\/|#)/i.test(raw))
+            continue
+          const suffixIndex = raw.search(/[?#]/)
+          const pathname = suffixIndex < 0
+            ? raw
+            : raw.slice(0, suffixIndex)
+          const postfix = suffixIndex < 0
+            ? ''
+            : raw.slice(suffixIndex)
+          if (!pathname)
+            continue
+          const decoded = decodeURIComponent(pathname)
+          const referenced = await resolve?.(decoded, source) ?? path.resolve(path.dirname(source), decoded)
+          const cached = await materialize(referenced)
+          dependencies.add(normalizePath(referenced))
+          const replacement = `url(${JSON.stringify(cached + postfix)})`
+          declaration.value = declaration.value.slice(0, match.index) + replacement + declaration.value.slice(match.index! + match[0].length)
+        }
+      },
+    }
+    const parsed = await preprocessCSS(code, parserFilename, {
+      ...config,
+      css: {
+        ...config.css,
+        transformer: 'postcss',
+        modules: false,
+        preprocessorOptions: {},
+        devSourcemap: false,
+        postcss: {
+          plugins: [plugin],
+        },
+      },
+    })
+    for (const dependency of parsed.deps ?? [])
+      dependencies.add(normalizePath(dependency))
+    return {
+      code: parsed.code,
+      dependencies: [...dependencies],
+    }
+  }
+
   async function copy(filename: string): Promise<string> {
     const directory = createHash('sha256').update(filename).digest('hex')
     const basename = path.basename(filename).replace(/[^\w.-]/g, '_')
@@ -50,54 +109,10 @@ export function createPageResources(config: ResolvedConfig): {
     const dependencies = new Set([filename])
     let contents = await readFile(filename)
     if (path.extname(filename) === '.css') {
-      const parserFilename = `${filename}.rempa.css`
-      const plugin = {
-        postcssPlugin: 'rempa-resource-urls',
-        async Declaration(declaration: Declaration): Promise<void> {
-          const importer = declaration.source?.input.file ?? parserFilename
-          const source = importer === parserFilename
-            ? filename
-            : importer
-          const matches = [
-            ...declaration.value.matchAll(cssUrlRE),
-          ]
-          for (const match of matches.reverse()) {
-            const raw = match[1].trim().replace(/^(['"])(.*)\1$/s, '$2')
-            if (!raw || /^(?:[a-z][\w+.-]*:|\/|#)/i.test(raw))
-              continue
-            const suffixIndex = raw.search(/[?#]/)
-            const pathname = suffixIndex < 0
-              ? raw
-              : raw.slice(0, suffixIndex)
-            const postfix = suffixIndex < 0
-              ? ''
-              : raw.slice(suffixIndex)
-            if (!pathname)
-              continue
-            const referenced = path.resolve(path.dirname(source), decodeURIComponent(pathname))
-            const cached = await materialize(referenced)
-            dependencies.add(normalizePath(referenced))
-            const replacement = `url(${JSON.stringify(cached + postfix)})`
-            declaration.value = declaration.value.slice(0, match.index) + replacement + declaration.value.slice(match.index! + match[0].length)
-          }
-        },
-      }
-      const parsed = await preprocessCSS(contents.toString('utf8'), parserFilename, {
-        ...config,
-        css: {
-          ...config.css,
-          transformer: 'postcss',
-          modules: false,
-          preprocessorOptions: {},
-          devSourcemap: false,
-          postcss: {
-            plugins: [plugin],
-          },
-        },
-      })
-      for (const dependency of parsed.deps ?? [])
-        dependencies.add(normalizePath(dependency))
-      contents = Buffer.from(parsed.code)
+      const rewritten = await rewriteCss(contents.toString('utf8'), filename)
+      for (const dependency of rewritten.dependencies)
+        dependencies.add(dependency)
+      contents = Buffer.from(rewritten.code)
     }
     await mkdir(path.dirname(target), { recursive: true })
     let previous: Buffer | undefined
@@ -116,6 +131,7 @@ export function createPageResources(config: ResolvedConfig): {
 
   return {
     materialize,
+    rewriteCss,
     get(id) {
       return resources.get(key(id))?.filename
     },

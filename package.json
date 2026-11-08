@@ -2,7 +2,7 @@
   "name": "vite-plugin-rempa",
   "type": "module",
   "version": "0.1.0",
-  "description": "Generate React multi-page applications from page configs with Vite.",
+  "description": "Generate React and Vue multi-page applications from page configs with Vite.",
   "author": "SumyGG Sun <sumyggsun@gmail.com>",
   "license": "MIT",
   "homepage": "https://github.com/sumy7/vite-plugin-rempa#readme",
@@ -16,6 +16,7 @@
   "keywords": [
     "vite",
     "react",
+    "vue",
     "plugin",
     "mpa",
     "vite-plugin"
@@ -55,7 +56,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "tsdown && vitest run --config vitest.config.e2e.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit --project examples/react/tsconfig.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit --project examples/react/tsconfig.json && vue-tsc --noEmit --project examples/vue/tsconfig.json",
+    "play:vue": "vite examples/vue",
+    "build:example:vue": "tsdown && vite build examples/vue",
+    "preview:vue": "vite preview examples/vue"
   },
   "peerDependencies": {
     "vite": "^8.3.6"
@@ -71,6 +75,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.2.1",
+    "@vitejs/plugin-vue": "^6.0.10",
     "bumpp": "^12.3.0",
     "eslint": "^10.14.0",
     "playwright": "^1.65.0",
@@ -79,7 +84,9 @@
     "tsdown": "^0.23.7",
     "typescript": "~6.0.3",
     "vite": "^8.3.6",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "vue": "^3.5.45",
+    "vue-tsc": "^3.3.14"
   },
   "publishConfig": {
     "access": "public",
