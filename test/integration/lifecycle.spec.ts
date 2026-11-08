@@ -1,21 +1,19 @@
 import type { InlineConfig, Rolldown, ViteDevServer } from 'vite'
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm, symlink } from 'node:fs/promises'
+import { readFile, rm, symlink } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { build, createServer } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import rempa from '../../src/index.ts'
-import { write, writePage } from '../helpers.ts'
+import { createTemporaryDirectory, testFixturesPlugin, write, writePage } from '../helpers.ts'
 
-const projectRoot = fileURLToPath(new URL('../..', import.meta.url))
 const directories: string[] = []
 const servers: ViteDevServer[] = []
 const watchers: Rolldown.RolldownWatcher[] = []
 
 async function fixture(): Promise<string> {
-  const root = await mkdtemp(path.join(projectRoot, '.rempa-test-lifecycle-'))
+  const root = await createTemporaryDirectory('lifecycle-')
   directories.push(root)
   await write(root, 'package.json', '{"type":"module"}')
   await write(root, 'node_modules/react/package.json', JSON.stringify({
@@ -52,6 +50,7 @@ function configuration(root: string, options: InlineConfig = {}): InlineConfig {
     configFile: false,
     logLevel: 'silent',
     plugins: [
+      testFixturesPlugin(),
       rempa(),
     ],
     server: { host: '127.0.0.1', port: 0 },

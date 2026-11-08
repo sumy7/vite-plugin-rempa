@@ -37,8 +37,10 @@ describe('installed React version', () => {
     expect(isReact18(application)).toBe(true)
   })
 
-  it('returns false for an absent, malformed or non-string installed version', async () => {
+  it('returns false for an inaccessible, malformed or non-string installed version', async () => {
     const root = await temporaryDirectory()
+    // Block the hoisted React package so this case exercises resolution failure.
+    await write(root, 'node_modules/react/package.json', '{"name":"react","exports":{}}')
     expect(getReactVersion(root)).toBe(false)
     expect(isReact18(root)).toBe(false)
     await installReact(root, 19)

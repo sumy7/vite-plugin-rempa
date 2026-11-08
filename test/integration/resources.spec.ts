@@ -1,18 +1,17 @@
 import type { InlineConfig, ViteDevServer } from 'vite'
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { build, createServer } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import rempa from '../../src/index.ts'
+import { createTemporaryDirectory, testFixturesPlugin } from '../helpers.ts'
 
-const projectRoot = fileURLToPath(new URL('../..', import.meta.url))
 const fixtures: string[] = []
 const servers: ViteDevServer[] = []
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect id="asset-marker" width="2" height="2" /></svg>'
 
 async function fixture(name: string): Promise<string> {
-  const root = await mkdtemp(path.join(projectRoot, '.rempa-test-resources-'))
+  const root = await createTemporaryDirectory('resources-')
   fixtures.push(root)
   const directory = path.join(root, 'src/pages', name)
   await mkdir(directory, { recursive: true })
@@ -30,6 +29,7 @@ function configuration(root: string): InlineConfig {
     configFile: false,
     logLevel: 'silent',
     plugins: [
+      testFixturesPlugin(),
       rempa(),
     ],
     server: { host: '127.0.0.1', port: 0, preTransformRequests: false },

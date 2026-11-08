@@ -234,7 +234,7 @@ pnpm test:e2e
 
 To use an existing browser instead, set `PLAYWRIGHT_CHANNEL` (for example, `chrome`) or `PLAYWRIGHT_EXECUTABLE_PATH` when running `pnpm test:e2e`.
 
-Unit and integration tests use `vitest.config.ts`. Browser tests use `vitest.config.e2e.ts`, run serially, and copy example files into isolated temporary directories before modifying them. Browser tests cover React interactions, page navigation, Fast Refresh, and production build/preview.
+Unit and integration tests use `vitest.config.ts`. Browser tests use `vitest.config.e2e.ts`, run serially, and copy example files into isolated temporary directories under `node_modules/.cache/vite-plugin-rempa/tests` before modifying them. Browser tests cover React interactions, page navigation, Fast Refresh, and production build/preview.
 
 ## License
 

@@ -1,12 +1,11 @@
 import type { InlineConfig, ViteDevServer } from 'vite'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { build, createServer } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import rempa from '../../src/index.ts'
+import { createTemporaryDirectory, testFixturesPlugin } from '../helpers.ts'
 
-const projectRoot = fileURLToPath(new URL('../..', import.meta.url))
 const fixtures: string[] = []
 const servers: ViteDevServer[] = []
 
@@ -17,7 +16,7 @@ async function write(root: string, file: string, contents: string): Promise<void
 }
 
 async function fixture(name: string, template?: string): Promise<string> {
-  const root = await mkdtemp(path.join(projectRoot, '.rempa-test-template-url-'))
+  const root = await createTemporaryDirectory('template-url-')
   fixtures.push(root)
   await write(root, 'package.json', '{"type":"module"}')
   await write(root, `src/pages/${name}/index.tsx`, `import React from 'react'; import Child from './child'; export default function Page() { return <h1>Page marker<Child /></h1>; }`)
@@ -36,6 +35,7 @@ function configuration(root: string): InlineConfig {
     configFile: false,
     logLevel: 'silent',
     plugins: [
+      testFixturesPlugin(),
       rempa(),
     ],
     server: { host: '127.0.0.1', port: 0, preTransformRequests: false },

@@ -1,15 +1,14 @@
 import type { InlineConfig, ViteDevServer } from 'vite'
 import type { PluginRempaOptions } from '../../src/types'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { runInNewContext } from 'node:vm'
 import { build, createServer, resolveConfig } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import rempa from '../../src/index'
+import { createTemporaryDirectory, testFixturesPlugin } from '../helpers.ts'
 
-const projectRoot = fileURLToPath(new URL('../..', import.meta.url))
 const fixtures: string[] = []
 const servers: ViteDevServer[] = []
 
@@ -20,7 +19,7 @@ async function write(root: string, name: string, contents: string) {
 }
 
 async function fixture(reactVersion = '18.3.1') {
-  const root = await mkdtemp(path.join(projectRoot, '.rempa-test-'))
+  const root = await createTemporaryDirectory('rempa-')
   fixtures.push(root)
   await write(root, 'package.json', JSON.stringify({
     type: 'module',
@@ -77,6 +76,7 @@ function viteConfig(root: string, options: PluginRempaOptions = {}, config: Inli
     configFile: false,
     logLevel: 'silent',
     plugins: [
+      testFixturesPlugin(),
       rempa(options),
     ],
     build: { minify: false },

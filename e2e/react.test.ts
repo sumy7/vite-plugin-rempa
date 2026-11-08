@@ -1,6 +1,6 @@
 import type { Browser, Page as BrowserPage } from 'playwright'
 import type { InlineConfig, Plugin, PreviewServer, ViteDevServer } from 'vite'
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import process from 'node:process'
@@ -10,6 +10,7 @@ import { chromium } from 'playwright'
 import { build, createServer, preview } from 'vite'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import rempa from '../src/index'
+import { createTemporaryDirectory, testFixturesPlugin } from '../test/helpers.ts'
 
 const projectRoot = fileURLToPath(new URL('..', import.meta.url))
 let fixture: string
@@ -33,7 +34,8 @@ function configuration(plugin: Plugin): InlineConfig {
     logLevel: 'silent',
     base: '/rempa/',
     plugins: [
-      react(),
+      testFixturesPlugin(),
+      react({ include: `${fixture.replaceAll('\\', '/')}/**/*.{js,jsx,ts,tsx}`, exclude: [] }),
       plugin,
     ],
     server: { host: '127.0.0.1', port: 0 },
@@ -54,7 +56,7 @@ beforeAll(async () => {
 })
 
 beforeEach(async () => {
-  fixture = await mkdtemp(path.join(projectRoot, '.rempa-test-browser-'))
+  fixture = await createTemporaryDirectory('browser-')
   const example = path.join(projectRoot, 'examples/react')
   await cp(path.join(example, 'src'), path.join(fixture, 'src'), { recursive: true })
   await cp(path.join(example, 'index.html'), path.join(fixture, 'index.html'))
