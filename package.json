@@ -1,0 +1,86 @@
+{
+  "name": "vite-plugin-rempa",
+  "type": "module",
+  "version": "0.0.1",
+  "packageManager": "pnpm@9.5.0",
+  "description": "Generate React multi-page applications from page configs with Vite.",
+  "author": "SumyGG Sun <sumyggsun@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/sumy7/vite-plugin-rempa#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sumy7/vite-plugin-rempa.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sumy7/vite-plugin-rempa/issues"
+  },
+  "keywords": [
+    "vite",
+    "react",
+    "plugin",
+    "mpa",
+    "vite-plugin"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/*",
+        "./dist/index.d.ts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "unbuild",
+    "dev": "unbuild --stub",
+    "lint": "eslint .",
+    "prepublishOnly": "nr build",
+    "release": "bumpp && npm publish",
+    "start": "esno src/index.ts",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ejs": "^3.1.9",
+    "glob": "^11.0.0",
+    "js-yaml": "^4.1.0",
+    "mime-types": "^2.1.35",
+    "picocolors": "^1.0.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^2.23.0",
+    "@antfu/ni": "^0.22.0",
+    "@antfu/utils": "^0.7.10",
+    "@types/ejs": "^3.1.0",
+    "@types/js-yaml": "^4.0.3",
+    "@types/mime-types": "^2.1.1",
+    "@types/node": "^20.14.12",
+    "bumpp": "^9.4.1",
+    "eslint": "^9.7.0",
+    "esno": "^4.7.0",
+    "rollup-plugin-string": "^3.0.0",
+    "typescript": "^5.2.2",
+    "unbuild": "^2.0.0",
+    "vite": "^5.3.4",
+    "vitest": "^2.0.3"
+  },
+  "volta": {
+    "node": "18.20.4"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
+}

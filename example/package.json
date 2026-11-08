@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite"
+  },
+  "dependencies": {
+  },
+  "devDependencies": {
+    "typescript": "^4.9.4",
+    "vite": "^5.3.4",
+    "vite-plugin-rempa": "workspace:*",
+    "@vitejs/plugin-react": "^4.6.0"
+  }
+}
