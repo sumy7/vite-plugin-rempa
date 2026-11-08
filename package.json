@@ -1,7 +1,7 @@
 {
   "name": "vite-plugin-rempa",
   "type": "module",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Generate React multi-page applications from page configs with Vite.",
   "author": "SumyGG Sun <sumyggsun@gmail.com>",
   "license": "MIT",

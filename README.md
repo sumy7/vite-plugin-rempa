@@ -1,29 +1,30 @@
 # vite-plugin-rempa
 
-**vite-plugin-rempa** is a Vite plugin that generates React multi-page applications from page directories and configuration files.
+<p>
+  <a href="https://npmjs.com/package/vite-plugin-rempa">
+    <img src="https://img.shields.io/npm/v/vite-plugin-rempa?style=flat-square&colorA=564341&colorB=EDED91" alt="npm version" />
+  </a>
+  <a href="https://npmjs.com/package/vite-plugin-rempa">
+    <img src="https://img.shields.io/npm/types/vite-plugin-rempa?style=flat-square&colorA=564341&colorB=EDED91" alt="TypeScript definitions" />
+  </a>
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square&colorA=564341&colorB=EDED91" alt="license" />
+  <a href="https://npmcharts.com/compare/vite-plugin-rempa?minimal=true"><img src="https://img.shields.io/npm/dm/vite-plugin-rempa.svg?style=flat-square&colorA=564341&colorB=EDED91" alt="monthly downloads" /></a>
+</p>
 
-## Features
+A Vite plugin to generate React multi-page applications from page configurations.
 
-- Discover pages automatically from `config.json` and `index.tsx` files.
-- Generate HTML and React entry modules without writing generated files into the source directory.
-- Support nested pages, shared layouts, page titles, custom mount elements, and HTML templates.
-- Pass page configuration values to templates directly or through a named parameters object.
-- Use `createRoot` with React 18 and later, and `ReactDOM.render` with earlier versions.
-- Support Vite development, Fast Refresh with `@vitejs/plugin-react`, production builds, and preview.
-- Preserve existing build inputs and aliases, and support Vite's `root`, `input`, and `base` options.
+Automatically discover nested pages, generate HTML and React entries, and apply shared layouts and templates. Supports React Fast Refresh and automatic React version detection.
 
-## Installation
+## Usage
 
-Install React and React DOM in your application, then install the plugin and Vite development tools:
+Install:
 
 ```sh
 pnpm add react react-dom
 pnpm add -D vite vite-plugin-rempa @vitejs/plugin-react
 ```
 
-Requires Vite 8.3.6 or later in the Vite 8 series. The repository toolchain requires Node.js 22.18+, 24.11+, or 26+, and pnpm 12.18.0. The recommended development version is Node.js 24.12.0 (see `.nvmrc`).
-
-## Usage
+Requires Vite `^8.3.6` and Node.js `^22.18.0 || ^24.11.0 || >=26.0.0`.
 
 Add the plugin to `vite.config.ts`:
 
@@ -35,16 +36,14 @@ import rempa from 'vite-plugin-rempa'
 export default defineConfig({
   plugins: [
     react(),
-    rempa()
+    rempa(),
   ],
 })
 ```
 
-The named export `pluginRempa` is also available. TypeScript users can import the `PluginRempaOptions` and `PageEntry` types.
+## Page Discovery
 
-### Page Structure
-
-Each page directory must contain a `config.json` file and an `index.tsx` file that exports a React component as its default export. An empty configuration object `{}` is valid.
+By default, the plugin scans `src/pages` for `config.json` files. Each page needs an `index.tsx` exporting a React component; an empty configuration `{}` is valid.
 
 ```text
 src/pages/
@@ -58,53 +57,26 @@ src/pages/
     └── index.tsx
 ```
 
-For example, create `src/pages/hello/index.tsx`:
+Development also supports extensionless URLs such as `/hello`. Pages respect Vite's `base` option. Page configuration changes restart the server; template changes reload the page.
 
-```tsx
-import type { ReactElement } from 'react'
+## Options
 
-export default function HelloPage(): ReactElement {
-  return <h1>Hello World</h1>
-}
-```
+Pass an options object to `rempa` to customize discovery and shared defaults:
 
-Then add `src/pages/hello/config.json`:
+| Name | Default | Description |
+| --- | --- | --- |
+| `pagesPath` | `src/pages` | Page directory, relative to Vite's `root`. |
+| `template` | Automatically selected | Default HTML template file. |
+| `layout` | React Fragment | Layout component receiving the page through `children`. Supports paths, aliases, and package imports. |
+| `aliasAtToSrc` | `true` | Add a fallback `@` alias for `<root>/src`, preserving existing aliases. |
+| `locals` | `true` | Also expose template parameters through the object named by `localsName`. |
+| `localsName` | `locals` | Name of the template parameters object. |
 
-```json
-{
-  "title": "Hello World"
-}
-```
+Relative template and layout paths resolve from Vite's `root`. The named export `pluginRempa` and types `PluginRempaOptions` and `PageEntry` are also available.
 
-Run the development server and open `/hello.html`.
+## Page Configuration
 
-### Plugin Options
-
-```ts
-rempa({
-  pagesPath: 'src/pages',
-  template: 'src/template/index.html',
-  layout: '@/layout/Layout.tsx',
-  aliasAtToSrc: true,
-  locals: true,
-  localsName: 'locals',
-})
-```
-
-| Name | Type | Default | Description |
-| --- | --- | --- | --- |
-| `pagesPath` | `string` | `src/pages` | Directory to scan for page configurations, relative to Vite's `root`. |
-| `template` | `string` | Automatically selected | Default HTML template path, relative to Vite's `root`. |
-| `layout` | `string` | React Fragment | Default layout module that wraps each page. Supports file paths, aliases, and package imports. |
-| `aliasAtToSrc` | `boolean` | `true` | Add a fallback `@` alias pointing to `<root>/src`, preserving existing alias precedence. |
-| `locals` | `boolean` | `true` | Expose template parameters through the object named by `localsName`, in addition to top-level variables. |
-| `localsName` | `string` | `locals` | Name of the template parameters object. |
-
-Relative template and layout file paths resolve from Vite's `root`. A layout receives the page component through its `children` prop.
-
-### Page Configuration
-
-Page-level settings override the corresponding plugin defaults:
+Use `config.json` to override defaults for a page:
 
 ```json
 {
@@ -118,42 +90,22 @@ Page-level settings override the corresponding plugin defaults:
 
 | Name | Default | Description |
 | --- | --- | --- |
-| `title` | Page name | Page title, available to the HTML template as `title`. |
-| `layout` | Plugin `layout` or React Fragment | Layout module for this page. |
-| `template` | Plugin or automatically selected template | HTML template for this page. |
-| `mountElementId` | `root` | ID of the DOM element where the page is mounted. Custom templates must provide this element. |
-| Additional properties | — | Values passed to the HTML template as parameters. |
+| `title` | Page name | HTML page title. |
+| `layout` | Plugin `layout` | Layout component for this page. |
+| `template` | Plugin `template` | HTML template for this page. |
+| `mountElementId` | `root` | ID of the mount element, which custom templates must provide. |
 
-Templates are selected in the following order:
+Additional properties are passed to the HTML template as parameters.
 
-1. Page-level `template`.
-2. Plugin-level `template`.
-3. `<root>/index.html`.
-4. `<root>/public/index.html`.
-5. The built-in HTML template.
+## HTML Templates
 
-### HTML Templates
-
-Templates support these tags:
-
-| Tag | Description |
-| --- | --- |
-| `<% ... %>` | Execute JavaScript statements. |
-| `<%= ... %>` | Insert a value without HTML escaping. |
-| `<%- ... %>` | Insert an HTML-escaped value. |
-
-For example, create `src/template/index.html`:
+Template priority: page `template`, plugin `template`, `<root>/index.html`, `<root>/public/index.html`, then the built-in template.
 
 ```html
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%- title %></title>
-    <% if (locals.description) { %>
-    <meta name="description" content="<%- description %>">
-    <% } %>
   </head>
   <body>
     <div id="<%- mountElementId %>"></div>
@@ -161,81 +113,35 @@ For example, create `src/template/index.html`:
 </html>
 ```
 
-The plugin injects the page entry script automatically. Use `<%- ... %>` for text that needs escaping and `<%= ... %>` for intentional HTML markup.
+The page entry script is injected automatically. Use `<% ... %>` for JavaScript, `<%- ... %>` for escaped text, and `<%= ... %>` for raw HTML. Parameters are available directly and through `locals`, for example `title` and `locals.title`.
 
-Parameters are available directly, such as `title`, and through `locals`, such as `locals.title`. Set `localsName` to change the object name, or set `locals: false` to expose only top-level parameters.
-
-Existing static HTML files follow Vite's normal behavior, and files in `public` are copied unchanged to the output directory. Keep shared templates in `src/template` and select them with `template` when they should only be used to generate pages.
+Files in `public` are copied unchanged. Keep shared templates in `src/template` when they should only generate pages.
 
 ## Development and Build
 
-### Application Workflow
+For your application:
 
 ```sh
-# Start the development server
 pnpm exec vite
-
-# Build the application
 pnpm exec vite build
-
-# Preview the production build
 pnpm exec vite preview
 ```
 
-During development, `/hello.html` and `/hello` resolve to the same generated page. Nested pages retain their directory structure. When `base` is configured, access pages under that prefix. Generated pages use multi-page routing without SPA fallback.
-
-Adding, removing, or changing a page configuration restarts the development server. Template changes trigger a full page reload. Production builds generate the corresponding `.html` files and bundled assets in Vite's output directory.
-
-### Repository Structure
-
-```text
-src/                 Plugin implementation
-examples/react/      React example application
-test/               Unit and Vite integration tests
-e2e/                Browser tests for development and production preview
-```
-
-The source is organized into page discovery (`pages.ts`), runtime generation (`runtime.ts`), HTML rendering (`template.ts`), and Vite integration (`plugin.ts`).
-
-### Plugin Development
-
-Install workspace dependencies. The install step also builds the plugin:
-
-```sh
-pnpm install
-```
-
-Use these commands from the repository root:
+For plugin development, use Node.js 24.12.0 (see `.nvmrc`) and run `pnpm install` first:
 
 | Command | Description |
 | --- | --- |
-| `pnpm dev` | Watch and rebuild the plugin library. |
-| `pnpm play` | Start the React example using the plugin source. |
-| `pnpm build` | Build ESM, CommonJS, and TypeScript declaration outputs. |
-| `pnpm build:example` | Build the plugin and the React example. |
-| `pnpm preview` | Preview the built React example. |
-| `pnpm lint` | Check source, tests, configuration, documentation, and example formatting. |
-| `pnpm lint:fix` | Apply automatic lint fixes. |
-| `pnpm typecheck` | Check the plugin, tests, and React example types. |
-| `pnpm test` | Run unit and Vite integration tests once. |
-| `pnpm test:watch` | Run unit and integration tests in watch mode. |
+| `pnpm dev` | Watch and rebuild the plugin. |
+| `pnpm play` | Start the React example at `/rempa/`. |
+| `pnpm build` | Build ESM, CommonJS, and TypeScript declarations. |
+| `pnpm build:example` | Build the plugin and React example. |
+| `pnpm preview` | Preview the built example at `/rempa/`. |
+| `pnpm lint` / `pnpm typecheck` | Check formatting and types. |
+| `pnpm test` | Run unit and integration tests. |
 | `pnpm test:e2e` | Build the plugin and run browser tests. |
 
-The example is available at `/rempa/` in development and preview. Its development server imports the plugin source directly; production builds and preview load the built package exports. React, React DOM, their types, and the Vite React plugin are declared in the workspace, so no additional example dependencies need to be installed manually.
-
-### Browser Tests
-
-Install the Chromium browser used by Playwright once:
-
-```sh
-pnpm exec playwright install chromium
-pnpm test:e2e
-```
-
-To use an existing browser instead, set `PLAYWRIGHT_CHANNEL` (for example, `chrome`) or `PLAYWRIGHT_EXECUTABLE_PATH` when running `pnpm test:e2e`.
-
-Unit and integration tests use `vitest.config.ts`. Browser tests use `vitest.config.e2e.ts`, run serially, and copy example files into isolated temporary directories under `node_modules/.cache/vite-plugin-rempa/tests` before modifying them. Browser tests cover React interactions, page navigation, Fast Refresh, and production build/preview.
+Install the browser with `pnpm exec playwright install chromium` before running browser tests.
 
 ## License
 
-MIT
+MIT.
