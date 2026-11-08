@@ -1,9 +1,9 @@
 import type { Page } from './pages.ts'
 
-export function runtimeSource(page: Page, modernReact: boolean): string {
+export function runtimeSource(page: Page, modernReact: boolean, appImport = page.entryPath): string {
   return `import React from 'react';
 import * as ReactDOM from '${modernReact ? 'react-dom/client' : 'react-dom'}';
-import App from ${JSON.stringify(page.entryPath)};
+import App from ${JSON.stringify(appImport)};
 ${page.layout
   ? `import Layout from ${JSON.stringify(page.layout)};`
   : 'const Layout = React.Fragment;'}

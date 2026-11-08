@@ -1,10 +1,16 @@
 import type { PageEntry, PluginRempaOptions } from './types.ts'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { glob } from 'glob'
 import { normalizePath } from 'vite'
 
 const RUNTIME_PREFIX = '/@rempa/'
+
+/** Encode URL path segments without changing their filesystem identities. */
+export function encodePageUrl(value: string): string {
+  return value.split('/').map(segment => encodeURIComponent(segment)).join('/')
+}
 
 export interface Page extends PageEntry {
   configPath: string
@@ -74,8 +80,8 @@ export async function collectPages(root: string, pagesPath: string, options: Plu
       pageConfig: { ...parameters, title: (title as string) || name, mountElementId },
       configPath,
       htmlPath: normalizePath(path.resolve(root, `${name}.html`)),
-      runtimePath: normalizePath(path.resolve(root, '.rempa', `${name}.tsx`)),
-      runtimeUrl: `${RUNTIME_PREFIX}${name}.tsx`,
+      runtimePath: normalizePath(path.resolve(root, '.rempa', 'runtime', `${createHash('sha256').update(name).digest('hex')}.tsx`)),
+      runtimeUrl: `${RUNTIME_PREFIX}${encodePageUrl(name)}.tsx`,
     }
   })
   if (!pages.length)

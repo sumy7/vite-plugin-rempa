@@ -1,5 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { createPageModules } from '../src/modules.ts'
 import { collectPages } from '../src/pages'
 import { useTemporaryDirectories, write, writePage } from './helpers'
 
@@ -108,5 +109,47 @@ describe('page discovery', () => {
     await writePage(root, '')
     await writePage(root, 'index')
     await expect(collect(root)).rejects.toThrow('Duplicate page name "index"')
+  })
+
+  it.each([
+    'with#hash',
+    'with%percent',
+    '中文 space',
+  ])('encodes the runtime URL while retaining filesystem names: %s', async (name) => {
+    const root = await temporaryDirectory()
+    await writePage(root, name)
+
+    const [page] = await collect(root)
+
+    expect(page.name).toBe(name)
+    expect(page.entryPath).toBe(path.join(root, 'src/pages', name, 'index.tsx'))
+    expect(page.runtimeUrl).toBe(`/@rempa/${encodeURIComponent(name)}.tsx`)
+    expect(page.runtimePath).not.toMatch(/[#?%\s]/)
+  })
+
+  it('assigns stable URL-safe module IDs without changing source identities', async () => {
+    const root = await temporaryDirectory()
+    const modules = createPageModules(root)
+    const filename = path.join(root, 'src/pages/with#hash/child.tsx')
+
+    const id = modules.register(filename)
+
+    expect(id).not.toMatch(/[#?%\s]/)
+    expect(id).toMatch(/\.tsx$/)
+    expect(modules.register(filename)).toBe(id)
+    expect(modules.get(id)).toBe(filename)
+    expect(modules.get(`${id}?v=123&t=456`)).toBe(filename)
+    expect(modules.get(path.join(root, 'unknown.tsx'))).toBeUndefined()
+  })
+
+  it('keeps virtual module basenames short for deeply nested page sources', async () => {
+    const root = await temporaryDirectory()
+    const modules = createPageModules(root)
+    const filename = path.join(root, 'nested-page-directory/'.repeat(15), 'index.tsx')
+
+    const id = modules.register(filename)
+
+    expect(path.basename(id).length).toBeLessThan(255)
+    expect(modules.get(id)).toBe(filename)
   })
 })

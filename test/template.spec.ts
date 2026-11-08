@@ -23,12 +23,12 @@ function page(overrides: Partial<Page> = {}): Page {
 }
 
 describe('html templates', () => {
-  it('creates escaped default markup and injects one entry before the body closes', () => {
+  it('creates escaped default markup and appends one entry without changing the document', () => {
     const html = renderPage(page(), {})
     expect(html).toContain('<title>Hello &lt;World&gt;</title>')
     expect(html).toContain('id="app&#34;root"')
     expect(html.match(/src="\/@rempa\/hello\.tsx"/g)).toHaveLength(1)
-    expect(html.indexOf('<script type="module"')).toBeLessThan(html.indexOf('</body>'))
+    expect(html.indexOf('<script type="module"')).toBeGreaterThan(html.indexOf('</html>'))
   })
 
   it('evaluates statements and distinguishes raw from escaped interpolation', async () => {
@@ -67,6 +67,20 @@ describe('html templates', () => {
     await write(root, 'template.html', '<HTML><BODY><script>window.existing = true</script></BODY></HTML>')
     const html = renderPage(page({ template }), {})
     expect(html).toContain('<script>window.existing = true</script>')
-    expect(html.indexOf('/@rempa/hello.tsx')).toBeLessThan(html.toLowerCase().indexOf('</body>'))
+    expect(html.indexOf('/@rempa/hello.tsx')).toBeGreaterThan(html.toLowerCase().indexOf('</html>'))
+  })
+
+  it.each([
+    '<!doctype html><html><body><!-- closing marker: </body> --><div id="root"></div></body></html>',
+    '<!doctype html><html><head><script>window.previewMarkup = \'<body>Preview</body>\';</script></head><body><div id="root"></div></body></html>',
+  ])('preserves closing-body markers in template contents', async (contents) => {
+    const root = await temporaryDirectory()
+    const template = path.join(root, 'template.html')
+    await write(root, 'template.html', contents)
+
+    const html = renderPage(page({ template }), {})
+
+    expect(html).toContain(contents)
+    expect(html.match(/src="\/@rempa\/hello\.tsx"/g)).toHaveLength(1)
   })
 })

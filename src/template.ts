@@ -20,7 +20,7 @@ export function renderPage(page: Page, options: PluginRempaOptions): string {
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${ejs.escapeXML(page.title)}</title></head>
 <body><div id="${ejs.escapeXML(page.pageConfig.mountElementId as string)}"></div></body></html>`
   const script = `<script type="module" src="${page.runtimeUrl}"></script>`
-  return /<\/body\s*>/i.test(html)
-    ? html.replace(/<\/body\s*>/i, `${script}\n</body>`)
-    : `${html}\n${script}`
+  // Keep template text intact: closing tags may also appear inside comments or scripts.
+  // HTML parsers place this trailing script in the document body without changing its doctype.
+  return `${html}\n${script}`
 }
