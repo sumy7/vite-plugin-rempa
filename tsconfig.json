@@ -5,10 +5,12 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
     "strict": true,
     "strictNullChecks": true,
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "build.config.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "e2e/**/*.ts", "*.config.ts"]
 }

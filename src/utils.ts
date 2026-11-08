@@ -9,7 +9,9 @@ export function getReactVersion(cwd: string): string | false {
     const require = createRequire(path.resolve(cwd, 'package.json'))
     const reactPath = require.resolve('react/package.json')
     const { version } = JSON.parse(readFileSync(reactPath, 'utf8'))
-    return typeof version === 'string' ? version : false
+    return typeof version === 'string'
+      ? version
+      : false
   }
   catch {
     return false

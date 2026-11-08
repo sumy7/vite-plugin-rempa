@@ -10,7 +10,7 @@
 - Pass page configuration values to templates directly or through a named parameters object.
 - Use `createRoot` with React 18 and later, and `ReactDOM.render` with earlier versions.
 - Support Vite development, Fast Refresh with `@vitejs/plugin-react`, production builds, and preview.
-- Preserve existing build inputs and aliases, and support Vite's `root` and `base` options.
+- Preserve existing build inputs and aliases, and support Vite's `root`, `input`, and `base` options.
 
 ## Installation
 
@@ -21,7 +21,7 @@ pnpm add react react-dom
 pnpm add -D vite vite-plugin-rempa @vitejs/plugin-react
 ```
 
-The plugin is tested with Vite 5.
+Requires Vite 8.3.6 or later in the Vite 8 series. The repository toolchain requires Node.js 22.18+, 24.11+, or 26+, and pnpm 12.18.0. The recommended development version is Node.js 24.12.0 (see `.nvmrc`).
 
 ## Usage
 
@@ -33,7 +33,10 @@ import { defineConfig } from 'vite'
 import rempa from 'vite-plugin-rempa'
 
 export default defineConfig({
-  plugins: [react(), rempa()],
+  plugins: [
+    react(),
+    rempa()
+  ],
 })
 ```
 
@@ -183,35 +186,55 @@ During development, `/hello.html` and `/hello` resolve to the same generated pag
 
 Adding, removing, or changing a page configuration restarts the development server. Template changes trigger a full page reload. Production builds generate the corresponding `.html` files and bundled assets in Vite's output directory.
 
+### Repository Structure
+
+```text
+src/                 Plugin implementation
+examples/react/      React example application
+test/               Unit and Vite integration tests
+e2e/                Browser tests for development and production preview
+```
+
+The source is organized into page discovery (`pages.ts`), runtime generation (`runtime.ts`), HTML rendering (`template.ts`), and Vite integration (`plugin.ts`).
+
 ### Plugin Development
 
+Install workspace dependencies. The install step also builds the plugin:
+
 ```sh
-# Install workspace dependencies
 pnpm install
-
-# Generate development stubs
-pnpm dev
-
-# Check formatting and types
-pnpm lint
-pnpm typecheck
-
-# Run integration tests
-pnpm exec vitest run
-
-# Build the plugin and TypeScript declarations
-pnpm build
 ```
 
-To run the example application, install its React dependencies first:
+Use these commands from the repository root:
+
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Watch and rebuild the plugin library. |
+| `pnpm play` | Start the React example using the plugin source. |
+| `pnpm build` | Build ESM, CommonJS, and TypeScript declaration outputs. |
+| `pnpm build:example` | Build the plugin and the React example. |
+| `pnpm preview` | Preview the built React example. |
+| `pnpm lint` | Check source, tests, configuration, documentation, and example formatting. |
+| `pnpm lint:fix` | Apply automatic lint fixes. |
+| `pnpm typecheck` | Check the plugin, tests, and React example types. |
+| `pnpm test` | Run unit and Vite integration tests once. |
+| `pnpm test:watch` | Run unit and integration tests in watch mode. |
+| `pnpm test:e2e` | Build the plugin and run browser tests. |
+
+The example is available at `/rempa/` in development and preview. Its development server imports the plugin source directly; production builds and preview load the built package exports. React, React DOM, their types, and the Vite React plugin are declared in the workspace, so no additional example dependencies need to be installed manually.
+
+### Browser Tests
+
+Install the Chromium browser used by Playwright once:
 
 ```sh
-pnpm --dir example add react react-dom
-pnpm build
-pnpm --dir example dev
-pnpm --dir example build
-pnpm --dir example exec vite preview
+pnpm exec playwright install chromium
+pnpm test:e2e
 ```
+
+To use an existing browser instead, set `PLAYWRIGHT_CHANNEL` (for example, `chrome`) or `PLAYWRIGHT_EXECUTABLE_PATH` when running `pnpm test:e2e`.
+
+Unit and integration tests use `vitest.config.ts`. Browser tests use `vitest.config.e2e.ts`, run serially, and copy example files into isolated temporary directories before modifying them. Browser tests cover React interactions, page navigation, Fast Refresh, and production build/preview.
 
 ## License
 
